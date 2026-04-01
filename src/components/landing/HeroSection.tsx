@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect } from "react"; 
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowRight, Shield, Fingerprint, Lock, User, QrCode, Cpu, AlertTriangle, CheckCircle2, Wallet, BadgeCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -89,27 +89,24 @@ function HeroAnimation() {
               <User className="h-8 w-8 text-primary" />
             </GlowCircle>
 
-            {/* Branching lines to 3 panels */}
             <div className="flex w-full items-start justify-between gap-3">
-              {[
-                { icon: Shield, label: "Issuer" },
-                { icon: Wallet, label: "Holder" },
-                { icon: BadgeCheck, label: "Verifier" },
-              ].map(({ icon: Icon, label }, i) => (
-                <motion.div
-                  key={label}
-                  initial={{ opacity: 0, y: 15 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.3 + i * 0.2, duration: 0.4 }}
-                  className="flex flex-1 flex-col items-center gap-2"
-                >
-                  <div className="h-8 w-px bg-primary/20" />
-                  <div className="flex flex-col items-center gap-1.5 rounded-lg border border-primary/10 bg-secondary/50 px-3 py-3 backdrop-blur-sm">
-                    <Icon className="h-5 w-5 text-primary" />
-                    <span className="text-[10px] font-semibold text-foreground">{label}</span>
-                  </div>
-                </motion.div>
-              ))}
+              {[{ icon: Shield, label: "Issuer" }, { icon: Wallet, label: "Holder" }, { icon: BadgeCheck, label: "Verifier" }].map(
+                ({ icon: Icon, label }, i) => (
+                  <motion.div
+                    key={label}
+                    initial={{ opacity: 0, y: 15 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.3 + i * 0.2, duration: 0.4 }}
+                    className="flex flex-1 flex-col items-center gap-2"
+                  >
+                    <div className="h-8 w-px bg-primary/20" />
+                    <div className="flex flex-col items-center gap-1.5 rounded-lg border border-primary/10 bg-secondary/50 px-3 py-3 backdrop-blur-sm">
+                      <Icon className="h-5 w-5 text-primary" />
+                      <span className="text-[10px] font-semibold text-foreground">{label}</span>
+                    </div>
+                  </motion.div>
+                )
+              )}
             </div>
 
             <p className="mt-2 text-center text-xs text-muted-foreground">Decentralized identity verification flow</p>
@@ -135,12 +132,10 @@ function HeroAnimation() {
             </motion.p>
 
             <div className="flex items-center gap-8">
-              {/* Portrait placeholder */}
               <GlowCircle size={80}>
                 <User className="h-10 w-10 text-primary/60" />
               </GlowCircle>
 
-              {/* Phone with QR */}
               <motion.div
                 initial={{ scale: 0.8, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
@@ -181,14 +176,12 @@ function HeroAnimation() {
             transition={{ duration: 0.3 }}
             className="flex flex-col gap-4"
           >
-            {/* Progress bars */}
             <div className="space-y-3">
               <ProgressBar label="Post-Quantum Crypto" delay={0} phase={phase} />
               <ProgressBar label="EdgeDoc AI Analysis" delay={0.3} phase={phase} />
               <ProgressBar label="ZKsync Anchoring" delay={0.6} phase={phase} />
             </div>
 
-            {/* Heatmap preview */}
             <div className="mt-2 flex items-center gap-3 rounded-lg border bg-secondary/30 p-3">
               <div className="flex h-14 w-10 items-center justify-center rounded border bg-muted">
                 <Cpu className="h-5 w-5 text-primary/50" />
@@ -201,9 +194,10 @@ function HeroAnimation() {
                       key={i}
                       className="h-2 w-2 rounded-sm"
                       style={{
-                        background: i < 3
-                          ? `hsl(var(--success) / ${0.4 + i * 0.2})`
-                          : `hsl(var(--primary) / ${0.2 + (i - 3) * 0.1})`,
+                        background:
+                          i < 3
+                            ? `hsl(var(--success) / ${0.4 + i * 0.2})`
+                            : `hsl(var(--primary) / ${0.2 + (i - 3) * 0.1})`,
                       }}
                     />
                   ))}
@@ -211,7 +205,6 @@ function HeroAnimation() {
               </div>
             </div>
 
-            {/* Alert / Success state */}
             <AnimatePresence mode="wait">
               {phase === "alert" && (
                 <motion.div
@@ -247,7 +240,6 @@ function HeroAnimation() {
                     Identity verified — quantum‑secure & AI‑confirmed
                   </p>
 
-                  {/* Mini diagram */}
                   <div className="mt-1 flex items-center gap-3">
                     {[Shield, Wallet, BadgeCheck].map((Icon, i) => (
                       <motion.div
@@ -274,14 +266,12 @@ function HeroAnimation() {
 export function HeroSection() {
   return (
     <section className="relative overflow-hidden pt-32 pb-20 sm:pt-40 sm:pb-28">
-      {/* Background gradient */}
       <div className="absolute inset-0 -z-10" style={{ background: "var(--gradient-hero)" }} />
       <div className="absolute -top-40 -right-40 -z-10 h-[600px] w-[600px] rounded-full bg-primary/5 blur-3xl" />
       <div className="absolute -bottom-40 -left-40 -z-10 h-[500px] w-[500px] rounded-full bg-accent/5 blur-3xl" />
 
       <div className="mx-auto max-w-7xl px-4 sm:px-6">
         <div className="grid items-center gap-12 lg:grid-cols-2">
-          {/* Left */}
           <motion.div
             initial={{ opacity: 0, x: -30 }}
             animate={{ opacity: 1, x: 0 }}
@@ -313,11 +303,7 @@ export function HeroSection() {
             </div>
 
             <div className="mt-10 flex items-center gap-6">
-              {[
-                { icon: Shield, label: "Zero-Knowledge Proofs" },
-                { icon: Lock, label: "End-to-End Encrypted" },
-                { icon: Fingerprint, label: "AI Fraud Detection" },
-              ].map(({ icon: Icon, label }) => (
+              {[{ icon: Shield, label: "Zero-Knowledge Proofs" }, { icon: Lock, label: "End-to-End Encrypted" }, { icon: Fingerprint, label: "AI Fraud Detection" }].map(({ icon: Icon, label }) => (
                 <div key={label} className="flex items-center gap-2 text-xs text-muted-foreground">
                   <Icon className="h-4 w-4 text-primary" />
                   <span>{label}</span>
@@ -326,7 +312,6 @@ export function HeroSection() {
             </div>
           </motion.div>
 
-          {/* Right — Animated verification flow */}
           <motion.div
             initial={{ opacity: 0, x: 30 }}
             animate={{ opacity: 1, x: 0 }}
