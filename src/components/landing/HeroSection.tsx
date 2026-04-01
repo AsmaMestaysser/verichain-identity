@@ -1,287 +1,270 @@
-import { useState, useEffect } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { ArrowRight, Shield, Fingerprint, Lock, User, QrCode, Cpu, AlertTriangle, CheckCircle2, Wallet, BadgeCheck } from "lucide-react";
+import { motion } from "framer-motion";
+import {
+  ArrowRight,
+  Shield,
+  Fingerprint,
+  Lock,
+  Wallet,
+  BadgeCheck,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import logo from "@/assets/logo.png";
+import facePhoto from "@/assets/face-photo.jfif"; // ← remplace par le bon chemin/nom de fichier
 
-type Phase = "opening" | "capture" | "processing" | "alert" | "success";
-
-function ProgressBar({ label, delay, phase }: { label: string; delay: number; phase: Phase }) {
-  const active = phase === "processing" || phase === "alert" || phase === "success";
-  const complete = phase === "success";
-
+// ─── Scan line animée ─────────────────────────────────────────────────────────
+function ScanLine() {
   return (
-    <div className="flex flex-col gap-1.5">
-      <div className="flex items-center justify-between">
-        <span className="text-[11px] font-medium text-foreground">{label}</span>
-        {complete && <CheckCircle2 className="h-3.5 w-3.5 text-primary" />}
-      </div>
-      <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
-        <motion.div
-          className="h-full rounded-full"
-          style={{ background: "var(--gradient-primary)" }}
-          initial={{ width: "0%" }}
-          animate={active ? { width: "100%" } : { width: "0%" }}
-          transition={{ duration: 2, delay, ease: "easeInOut" }}
-        />
-      </div>
-    </div>
+    <motion.div
+      className="pointer-events-none absolute left-0 right-0 z-10"
+      style={{
+        height: 2,
+        background:
+          "linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.85) 50%, transparent 100%)",
+      }}
+      animate={{ top: [88, 340] }}
+      transition={{ duration: 2.4, repeat: Infinity, ease: "easeInOut" }}
+    />
   );
 }
 
-function GlowCircle({ children, size = 80, pulse = false }: { children: React.ReactNode; size?: number; pulse?: boolean }) {
+// ─── Coins du cadre de scan ───────────────────────────────────────────────────
+function ScanBrackets() {
+  const corners = [
+    { top: 88,  left: "calc(50% - 80px)", borderTop: true,    borderLeft: true,  borderRadius: "4px 0 0 0" },
+    { top: 88,  left: "calc(50% + 46px)", borderTop: true,    borderRight: true, borderRadius: "0 4px 0 0" },
+    { top: 290, left: "calc(50% - 80px)", borderBottom: true, borderLeft: true,  borderRadius: "0 0 0 4px" },
+    { top: 290, left: "calc(50% + 46px)", borderBottom: true, borderRight: true, borderRadius: "0 0 4px 0" },
+  ];
+
   return (
-    <div className="relative flex items-center justify-center" style={{ width: size, height: size }}>
-      {pulse && (
-        <motion.div
-          className="absolute inset-0 rounded-full border-2 border-primary/40"
-          animate={{ scale: [1, 1.3, 1], opacity: [0.6, 0, 0.6] }}
-          transition={{ duration: 2, repeat: Infinity }}
+    <>
+      {corners.map((c, i) => (
+        <div
+          key={i}
+          className="absolute z-10"
+          style={{
+            top: c.top,
+            left: c.left,
+            width: 34,
+            height: 34,
+            borderRadius: c.borderRadius,
+            borderTop:    c.borderTop    ? "2.5px solid rgba(255,255,255,0.9)" : undefined,
+            borderBottom: c.borderBottom ? "2.5px solid rgba(255,255,255,0.9)" : undefined,
+            borderLeft:   c.borderLeft   ? "2.5px solid rgba(255,255,255,0.9)" : undefined,
+            borderRight:  c.borderRight  ? "2.5px solid rgba(255,255,255,0.9)" : undefined,
+          }}
         />
-      )}
+      ))}
+    </>
+  );
+}
+
+// ─── Téléphone ────────────────────────────────────────────────────────────────
+function PhoneMockup() {
+  return (
+    <div className="relative" style={{ width: 224, height: 450 }}>
+
+      {/* Shell */}
       <div
-        className="flex items-center justify-center rounded-full border border-primary/30 bg-card"
-        style={{ width: size, height: size, boxShadow: "0 0 20px hsl(220 90% 56% / 0.2)" }}
+        className="absolute inset-0 rounded-[38px] p-[3px]"
+        style={{
+          background: "#e5e7ea",
+          boxShadow:
+            "0 2px 0 #c4c6c9, 0 4px 0 #aeaeb2, 0 6px 0 #98989c, 0 10px 30px rgba(0,0,0,0.22), inset 0 0 0 1px rgba(255,255,255,0.85)",
+        }}
       >
-        {children}
+        {/* Bezel */}
+        <div
+          className="relative h-full w-full overflow-hidden rounded-[36px]"
+          style={{ background: "#0d0d0d" }}
+        >
+          {/* Dynamic Island */}
+          <div
+            className="absolute left-1/2 -translate-x-1/2 z-20"
+            style={{ top: 11, width: 74, height: 21, background: "#000", borderRadius: 13 }}
+          />
+
+          {/* Status bar */}
+          <div
+            className="absolute left-0 right-0 z-20 flex items-end justify-between px-4"
+            style={{ top: 0, height: 38, paddingBottom: 5 }}
+          >
+            <span style={{ fontSize: 11, fontWeight: 700, color: "#fff", letterSpacing: -0.3 }}>
+              9:41
+            </span>
+            <div className="flex items-center gap-1">
+              {/* Signal */}
+              <svg width="17" height="12" viewBox="0 0 17 12">
+                <rect x="0"    y="8" width="3" height="4"  rx=".6" fill="white" />
+                <rect x="4.5"  y="5" width="3" height="7"  rx=".6" fill="white" />
+                <rect x="9"    y="2" width="3" height="10" rx=".6" fill="white" />
+                <rect x="13.5" y="0" width="3" height="12" rx=".6" fill="white" />
+              </svg>
+              {/* Batterie */}
+              <svg width="25" height="12" viewBox="0 0 25 12">
+                <rect x="0" y="1" width="21" height="10" rx="2.5" stroke="rgba(255,255,255,0.4)" strokeWidth="1" fill="none" />
+                <rect x="21.5" y="3.5" width="3" height="5" rx="1.2" fill="rgba(255,255,255,0.5)" />
+                <rect x="1.5" y="2.5" width="15" height="7" rx="1.5" fill="white" />
+              </svg>
+            </div>
+          </div>
+
+          {/* App header "Scanning" */}
+          <div
+            className="absolute left-0 right-0 z-10 flex items-center justify-between px-4"
+            style={{ top: 38 }}
+          >
+            <span style={{ fontSize: 13, fontWeight: 600, color: "#fff", letterSpacing: "0.01em" }}>
+              Scanning
+            </span>
+            <div className="flex flex-col items-end gap-[3px]">
+              <div style={{ width: 14, height: 2, background: "#fff", borderRadius: 1 }} />
+              <div style={{ width: 10, height: 2, background: "#fff", borderRadius: 1 }} />
+              <div style={{ width: 14, height: 2, background: "#fff", borderRadius: 1 }} />
+            </div>
+          </div>
+
+          {/* ── Photo réelle en plein écran ── */}
+          <img
+            src={facePhoto}
+            alt="Face scan"
+            className="absolute inset-0 h-full w-full"
+            style={{ objectFit: "cover", objectPosition: "center top" }}
+          />
+
+          {/* Vignette bas pour contraste */}
+          <div
+            className="absolute bottom-0 left-0 right-0 z-[5]"
+            style={{
+              height: 130,
+              background: "linear-gradient(to top, rgba(0,0,0,0.50), transparent)",
+            }}
+          />
+
+          {/* Scan line + brackets */}
+          <ScanLine />
+          <ScanBrackets />
+
+          {/* Shutter */}
+          <div
+            className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 flex items-center justify-center rounded-full"
+            style={{
+              width: 48,
+              height: 48,
+              background: "rgba(255,255,255,0.22)",
+              border: "2.5px solid rgba(255,255,255,0.8)",
+            }}
+          >
+            <div
+              className="rounded-full"
+              style={{ width: 34, height: 34, background: "rgba(255,255,255,0.85)" }}
+            />
+          </div>
+        </div>
       </div>
+
+      {/* Boutons latéraux gauche */}
+      <div className="absolute rounded-l-sm" style={{ top: 118, left: -3, width: 3, height: 28, background: "#c0c2c4" }} />
+      <div className="absolute rounded-l-sm" style={{ top: 155, left: -3, width: 3, height: 46, background: "#c0c2c4" }} />
+      <div className="absolute rounded-l-sm" style={{ top: 210, left: -3, width: 3, height: 46, background: "#c0c2c4" }} />
+      {/* Bouton droit */}
+      <div className="absolute rounded-r-sm" style={{ top: 155, right: -3, width: 3, height: 62, background: "#c0c2c4" }} />
     </div>
   );
 }
 
+// ─── Carte ID overlay ─────────────────────────────────────────────────────────
+function IdCard() {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 18, scale: 0.96 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      transition={{ delay: 0.6, type: "spring", stiffness: 200, damping: 22 }}
+      className="absolute rounded-xl border bg-card p-3"
+      style={{
+        bottom: 16,
+        left: -76,
+        width: 196,
+        boxShadow: "0 8px 32px rgba(0,0,0,0.14), 0 2px 8px rgba(0,0,0,0.08)",
+      }}
+    >
+      {/* Avatar + nom */}
+      <div className="mb-2.5 flex items-center gap-2.5">
+        <div
+          className="flex h-8 w-8 flex-shrink-0 items-end justify-center overflow-hidden rounded-full"
+          style={{ background: "linear-gradient(135deg,#c49a6a,#a07850)" }}
+        >
+          <div
+            className="rounded-t-full"
+            style={{ width: 20, height: 20, background: "#8a6040", marginBottom: -2 }}
+          />
+        </div>
+        <div>
+          <p className="text-[12px] font-semibold text-foreground leading-tight">Ralph Edwards</p>
+          <p className="text-[10px] text-muted-foreground">05/18/1984</p>
+        </div>
+      </div>
+
+      {/* Séparateur */}
+      <div className="mb-2 h-px bg-border" />
+
+      {/* Champs */}
+      <p className="mb-1 text-[8px] uppercase tracking-widest text-muted-foreground">
+        Verification date
+      </p>
+      <div className="mb-1 h-2 w-4/5 rounded bg-muted" />
+      <p className="mb-2 font-mono text-[11px] font-semibold tracking-wide text-foreground">
+        0 5 / 0 6 / 2 0 2 4
+      </p>
+
+      {/* Code MRZ */}
+      <div className="rounded bg-muted px-2 py-1">
+        <p className="font-mono text-[8px] tracking-wider text-muted-foreground">
+          AB-07-443YFY3-XF34-4*MR*
+        </p>
+      </div>
+    </motion.div>
+  );
+}
+
+// ─── HeroAnimation — remplace l'ancienne fonction ────────────────────────────
 function HeroAnimation() {
-  const [phase, setPhase] = useState<Phase>("opening");
-
-  useEffect(() => {
-    const timers = [
-      setTimeout(() => setPhase("capture"), 3000),
-      setTimeout(() => setPhase("processing"), 5000),
-      setTimeout(() => setPhase("alert"), 6500),
-      setTimeout(() => setPhase("success"), 8500),
-      setTimeout(() => setPhase("opening"), 12000),
-    ];
-    return () => timers.forEach(clearTimeout);
-  }, [phase === "opening" ? Date.now() : 0]);
-
   return (
     <div
-      className="relative mx-auto h-[420px] w-full max-w-md overflow-hidden rounded-2xl border bg-card p-6"
+      className="relative mx-auto flex h-[480px] w-full max-w-md items-center justify-center overflow-visible rounded-2xl border bg-card"
       style={{ boxShadow: "var(--shadow-elevated)" }}
     >
-      {/* Top logo */}
-      <div className="flex items-center justify-center gap-2 mb-4">
-        <img src={logo} alt="QS·DID" className="h-6 w-6" />
-        <span className="text-sm font-bold text-foreground tracking-tight">QS·DID</span>
+      {/* Halo ambiant */}
+      <div
+        className="pointer-events-none absolute inset-0 rounded-2xl"
+        style={{
+          background:
+            "radial-gradient(ellipse at 60% 40%, hsl(220 90% 56% / 0.07) 0%, transparent 70%)",
+        }}
+      />
+
+      {/* Téléphone + carte ID */}
+      <div className="relative">
+        <PhoneMockup />
+        <IdCard />
       </div>
-
-      <AnimatePresence mode="wait">
-        {/* OPENING PHASE */}
-        {phase === "opening" && (
-          <motion.div
-            key="opening"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.3 }}
-            className="flex flex-col items-center gap-6"
-          >
-            <GlowCircle size={72} pulse>
-              <User className="h-8 w-8 text-primary" />
-            </GlowCircle>
-
-            {/* Branching lines to 3 panels */}
-            <div className="flex w-full items-start justify-between gap-3">
-              {[
-                { icon: Shield, label: "Issuer" },
-                { icon: Wallet, label: "Holder" },
-                { icon: BadgeCheck, label: "Verifier" },
-              ].map(({ icon: Icon, label }, i) => (
-                <motion.div
-                  key={label}
-                  initial={{ opacity: 0, y: 15 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.3 + i * 0.2, duration: 0.4 }}
-                  className="flex flex-1 flex-col items-center gap-2"
-                >
-                  <div className="h-8 w-px bg-primary/20" />
-                  <div className="flex flex-col items-center gap-1.5 rounded-lg border border-primary/10 bg-secondary/50 px-3 py-3 backdrop-blur-sm">
-                    <Icon className="h-5 w-5 text-primary" />
-                    <span className="text-[10px] font-semibold text-foreground">{label}</span>
-                  </div>
-                </motion.div>
-              ))}
-            </div>
-
-            <p className="mt-2 text-center text-xs text-muted-foreground">Decentralized identity verification flow</p>
-          </motion.div>
-        )}
-
-        {/* CAPTURE PHASE */}
-        {phase === "capture" && (
-          <motion.div
-            key="capture"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.3 }}
-            className="flex flex-col items-center gap-5"
-          >
-            <motion.p
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="text-xs font-semibold text-primary"
-            >
-              Identity verification in progress
-            </motion.p>
-
-            <div className="flex items-center gap-8">
-              {/* Portrait placeholder */}
-              <GlowCircle size={80}>
-                <User className="h-10 w-10 text-primary/60" />
-              </GlowCircle>
-
-              {/* Phone with QR */}
-              <motion.div
-                initial={{ scale: 0.8, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                transition={{ delay: 0.3 }}
-                className="relative flex h-28 w-16 flex-col items-center justify-center rounded-xl border-2 border-primary/30 bg-secondary/50"
-                style={{ boxShadow: "0 0 15px hsl(220 90% 56% / 0.15)" }}
-              >
-                <QrCode className="h-8 w-8 text-primary" />
-                <motion.div
-                  className="absolute inset-0 rounded-xl border-2 border-primary/40"
-                  animate={{ opacity: [0, 1, 0] }}
-                  transition={{ duration: 1.5, repeat: Infinity }}
-                />
-              </motion.div>
-            </div>
-
-            <div className="flex gap-2">
-              {[0, 1, 2].map((i) => (
-                <motion.div
-                  key={i}
-                  className="h-1.5 w-1.5 rounded-full bg-primary"
-                  animate={{ opacity: [0.3, 1, 0.3] }}
-                  transition={{ duration: 1, delay: i * 0.3, repeat: Infinity }}
-                />
-              ))}
-            </div>
-            <p className="text-[11px] text-muted-foreground">Scanning credentials…</p>
-          </motion.div>
-        )}
-
-        {/* PROCESSING + ALERT + SUCCESS PHASES */}
-        {(phase === "processing" || phase === "alert" || phase === "success") && (
-          <motion.div
-            key="processing"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.3 }}
-            className="flex flex-col gap-4"
-          >
-            {/* Progress bars */}
-            <div className="space-y-3">
-              <ProgressBar label="Post-Quantum Crypto" delay={0} phase={phase} />
-              <ProgressBar label="EdgeDoc AI Analysis" delay={0.3} phase={phase} />
-              <ProgressBar label="ZKsync Anchoring" delay={0.6} phase={phase} />
-            </div>
-
-            {/* Heatmap preview */}
-            <div className="mt-2 flex items-center gap-3 rounded-lg border bg-secondary/30 p-3">
-              <div className="flex h-14 w-10 items-center justify-center rounded border bg-muted">
-                <Cpu className="h-5 w-5 text-primary/50" />
-              </div>
-              <div className="flex-1">
-                <p className="text-[11px] font-medium text-foreground">Document Heatmap</p>
-                <div className="mt-1 flex gap-1">
-                  {[...Array(8)].map((_, i) => (
-                    <div
-                      key={i}
-                      className="h-2 w-2 rounded-sm"
-                      style={{
-                        background: i < 3
-                          ? `hsl(var(--success) / ${0.4 + i * 0.2})`
-                          : `hsl(var(--primary) / ${0.2 + (i - 3) * 0.1})`,
-                      }}
-                    />
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            {/* Alert / Success state */}
-            <AnimatePresence mode="wait">
-              {phase === "alert" && (
-                <motion.div
-                  key="alert-badge"
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.9 }}
-                  transition={{ duration: 0.3 }}
-                  className="flex items-center gap-2 rounded-lg border border-warning/30 bg-warning/5 px-3 py-2"
-                >
-                  <motion.div animate={{ scale: [1, 1.15, 1] }} transition={{ duration: 0.8, repeat: Infinity }}>
-                    <AlertTriangle className="h-4 w-4" style={{ color: "hsl(var(--warning))" }} />
-                  </motion.div>
-                  <span className="text-[11px] font-medium text-foreground">Scanning for forgeries…</span>
-                </motion.div>
-              )}
-
-              {phase === "success" && (
-                <motion.div
-                  key="success-badge"
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ duration: 0.3 }}
-                  className="flex flex-col items-center gap-2 rounded-lg border border-primary/20 bg-primary/5 px-3 py-3"
-                >
-                  <motion.div
-                    animate={{ scale: [1, 1.2, 1] }}
-                    transition={{ duration: 0.5, repeat: 3 }}
-                  >
-                    <CheckCircle2 className="h-6 w-6 text-primary" />
-                  </motion.div>
-                  <p className="text-xs font-semibold text-foreground">
-                    Identity verified — quantum‑secure & AI‑confirmed
-                  </p>
-
-                  {/* Mini diagram */}
-                  <div className="mt-1 flex items-center gap-3">
-                    {[Shield, Wallet, BadgeCheck].map((Icon, i) => (
-                      <motion.div
-                        key={i}
-                        initial={{ opacity: 0, y: 5 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.2 + i * 0.15 }}
-                        className="flex h-7 w-7 items-center justify-center rounded-full border border-primary/20 bg-card"
-                      >
-                        <Icon className="h-3.5 w-3.5 text-primary" />
-                      </motion.div>
-                    ))}
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </motion.div>
-        )}
-      </AnimatePresence>
     </div>
   );
 }
 
+// ─── HeroSection ─────────────────────────────────────────────────────────────
 export function HeroSection() {
   return (
     <section className="relative overflow-hidden pt-32 pb-20 sm:pt-40 sm:pb-28">
-      {/* Background gradient */}
+      {/* Fond dégradé */}
       <div className="absolute inset-0 -z-10" style={{ background: "var(--gradient-hero)" }} />
       <div className="absolute -top-40 -right-40 -z-10 h-[600px] w-[600px] rounded-full bg-primary/5 blur-3xl" />
       <div className="absolute -bottom-40 -left-40 -z-10 h-[500px] w-[500px] rounded-full bg-accent/5 blur-3xl" />
 
       <div className="mx-auto max-w-7xl px-4 sm:px-6">
         <div className="grid items-center gap-12 lg:grid-cols-2">
-          {/* Left */}
+
+          {/* ── Colonne gauche ── */}
           <motion.div
             initial={{ opacity: 0, x: -30 }}
             animate={{ opacity: 1, x: 0 }}
@@ -293,7 +276,10 @@ export function HeroSection() {
 
             <h1 className="mt-6 text-4xl font-extrabold leading-tight tracking-tight text-foreground sm:text-5xl lg:text-6xl">
               Own Your
-              <span className="bg-clip-text text-transparent" style={{ backgroundImage: "var(--gradient-primary)" }}>
+              <span
+                className="bg-clip-text text-transparent"
+                style={{ backgroundImage: "var(--gradient-primary)" }}
+              >
                 {" "}Digital Identity
               </span>
             </h1>
@@ -314,8 +300,8 @@ export function HeroSection() {
 
             <div className="mt-10 flex items-center gap-6">
               {[
-                { icon: Shield, label: "Zero-Knowledge Proofs" },
-                { icon: Lock, label: "End-to-End Encrypted" },
+                { icon: Shield,      label: "Zero-Knowledge Proofs" },
+                { icon: Lock,        label: "End-to-End Encrypted" },
                 { icon: Fingerprint, label: "AI Fraud Detection" },
               ].map(({ icon: Icon, label }) => (
                 <div key={label} className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -326,7 +312,7 @@ export function HeroSection() {
             </div>
           </motion.div>
 
-          {/* Right — Animated verification flow */}
+          {/* ── Colonne droite — mockup téléphone ── */}
           <motion.div
             initial={{ opacity: 0, x: 30 }}
             animate={{ opacity: 1, x: 0 }}
@@ -334,6 +320,7 @@ export function HeroSection() {
           >
             <HeroAnimation />
           </motion.div>
+
         </div>
       </div>
     </section>
