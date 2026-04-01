@@ -89,12 +89,12 @@ export function EcosystemSection() {
             whileInView={{ opacity: 1, x: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.6 }}
-            className="flex items-center justify-center pt-4"
+            className="flex items-center justify-center pt-16 lg:pt-24"
           >
             <img
               src={ecosystemFlow}
               alt="Ecosystem flow: Data source issues credentials to Holders who share with Relying Parties"
-              className="w-full max-w-lg"
+              className="w-full max-w-xl lg:max-w-2xl"
             />
           </motion.div>
         </div>
