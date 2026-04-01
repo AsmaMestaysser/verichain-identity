@@ -9,7 +9,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import logo from "@/assets/logo.png";
-import facePhoto from "@/assets/face-photo.jfif"; // ← remplace par le bon chemin/nom de fichier
+import facePhoto from "@/assets/face-photo.jpg"; // ← remplace par le bon chemin/nom de fichier
 
 // ─── Scan line animée ─────────────────────────────────────────────────────────
 function ScanLine() {
@@ -183,25 +183,21 @@ function IdCard() {
       className="absolute rounded-xl border bg-card p-3"
       style={{
         bottom: 16,
-        left: -76,
+        left: -110,
         width: 196,
         boxShadow: "0 8px 32px rgba(0,0,0,0.14), 0 2px 8px rgba(0,0,0,0.08)",
       }}
     >
       {/* Avatar + nom */}
       <div className="mb-2.5 flex items-center gap-2.5">
-        <div
-          className="flex h-8 w-8 flex-shrink-0 items-end justify-center overflow-hidden rounded-full"
-          style={{ background: "linear-gradient(135deg,#c49a6a,#a07850)" }}
-        >
-          <div
-            className="rounded-t-full"
-            style={{ width: 20, height: 20, background: "#8a6040", marginBottom: -2 }}
-          />
-        </div>
+        <img
+          src={facePhoto}
+          alt="Ralph Edwards"
+          className="h-8 w-8 flex-shrink-0 rounded-full object-cover object-top"
+        />
         <div>
           <p className="text-[12px] font-semibold text-foreground leading-tight">Ralph Edwards</p>
-          <p className="text-[10px] text-muted-foreground">05/18/1984</p>
+          <p className="text-[10px] text-muted-foreground">03/06/2002</p>
         </div>
       </div>
 
@@ -214,7 +210,7 @@ function IdCard() {
       </p>
       <div className="mb-1 h-2 w-4/5 rounded bg-muted" />
       <p className="mb-2 font-mono text-[11px] font-semibold tracking-wide text-foreground">
-        0 5 / 0 6 / 2 0 2 4
+        0 5 / 0 4 / 2 0 2 6
       </p>
 
       {/* Code MRZ */}
