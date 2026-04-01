@@ -70,7 +70,6 @@ function HeroAnimation() {
     >
       {/* Top logo */}
       <div className="flex items-center justify-center gap-2 mb-4">
-        <img src={logo} alt="QS·DID" className="h-6 w-6" />
         <span className="text-sm font-bold text-foreground tracking-tight">QS·DID</span>
       </div>
 
