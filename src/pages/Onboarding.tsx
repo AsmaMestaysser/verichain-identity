@@ -16,6 +16,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { WalletAddress } from "@/components/ui/WalletAddress";
 import { toast } from "@/hooks/use-toast";
+import { useNavigate } from "react-router-dom";
 import logo from "@/assets/logo.png";
 
 type Step = "connect" | "role";
@@ -86,6 +87,7 @@ export default function Onboarding() {
   const [connectingWallet, setConnectingWallet] = useState<WalletId | null>(null);
   const [walletAddress, setWalletAddress] = useState<string | null>(null);
   const [selectedRole, setSelectedRole] = useState<Role | null>(null);
+  const navigate = useNavigate();
 
   const handleConnect = useCallback(async (wallet: WalletOption) => {
     if (!wallet.checkInstalled() && wallet.installUrl) {
@@ -134,8 +136,8 @@ export default function Onboarding() {
     if (!selectedRole || !walletAddress) return;
     const did = `did:zk:${walletAddress}`;
     toast({ title: "Identity anchored", description: `DID: ${did.slice(0, 20)}…` });
-    // Navigate to dashboard or next step here
-  }, [selectedRole, walletAddress]);
+    navigate("/dashboard");
+  }, [selectedRole, walletAddress, navigate]);
 
   return (
     <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-background px-4 sm:px-6">
