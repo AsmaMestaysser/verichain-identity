@@ -16,6 +16,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { WalletAddress } from "@/components/ui/WalletAddress";
 import { toast } from "@/hooks/use-toast";
+import { useNavigate } from "react-router-dom";
 import logo from "@/assets/logo.png";
 
 type Step = "connect" | "role";
