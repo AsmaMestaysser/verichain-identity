@@ -136,7 +136,7 @@ export default function Onboarding() {
     if (!selectedRole || !walletAddress) return;
     const did = `did:zk:${walletAddress}`;
     toast({ title: "Identity anchored", description: `DID: ${did.slice(0, 20)}…` });
-    navigate("/dashboard");
+    navigate(`/${selectedRole}`);
   }, [selectedRole, walletAddress, navigate]);
 
   return (
