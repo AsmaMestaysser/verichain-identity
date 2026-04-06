@@ -12,8 +12,10 @@ import {
   Wallet,
   Link2,
   Landmark,
+  Zap,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { WalletAddress } from "@/components/ui/WalletAddress";
 import { toast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
@@ -59,24 +61,25 @@ const wallets: WalletOption[] = [
   },
 ];
 
-const roles: { id: Role; name: string; description: string; icon: React.ReactNode }[] = [
+const roles: { id: Role; name: string; description: string; icon: React.ReactNode; badge?: string }[] = [
+  {
+    id: "holder",
+    name: "Individual",
+    description: "For personal identity management and credential storage.",
+    icon: <UserCheck className="h-5 w-5" />,
+    badge: "INSTANT",
+  },
   {
     id: "issuer",
     name: "Issuer",
-    description: "Issue verifiable credentials to holders using quantum-resistant signatures.",
-    icon: <Stamp className="h-7 w-7" />,
-  },
-  {
-    id: "holder",
-    name: "Holder",
-    description: "Receive, store, and present credentials from your decentralized wallet.",
-    icon: <UserCheck className="h-7 w-7" />,
+    description: "For organizations issuing verifiable credentials on-chain.",
+    icon: <Stamp className="h-5 w-5" />,
   },
   {
     id: "verifier",
     name: "Verifier",
-    description: "Verify credential authenticity with zero-knowledge proof validation.",
-    icon: <ScanSearch className="h-7 w-7" />,
+    description: "For entities verifying credential authenticity and ZKP proofs.",
+    icon: <ScanSearch className="h-5 w-5" />,
   },
 ];
 
@@ -87,6 +90,8 @@ export default function Onboarding() {
   const [connectingWallet, setConnectingWallet] = useState<WalletId | null>(null);
   const [walletAddress, setWalletAddress] = useState<string | null>(null);
   const [selectedRole, setSelectedRole] = useState<Role | null>(null);
+  const [acceptTerms, setAcceptTerms] = useState(false);
+  const [acceptRegion, setAcceptRegion] = useState(false);
   const navigate = useNavigate();
 
   const handleConnect = useCallback(async (wallet: WalletOption) => {
@@ -256,9 +261,9 @@ export default function Onboarding() {
                     Back
                   </button>
 
-                  <h2 className="text-lg font-semibold text-foreground">Select your role</h2>
+                  <h2 className="text-lg font-semibold text-foreground">Verify your identity</h2>
                   <p className="mt-1 text-sm text-muted-foreground">
-                    Choose how you'll interact with the identity network.
+                    Select your account type
                   </p>
 
                   <div className="mt-5 flex flex-col gap-3">
@@ -267,42 +272,77 @@ export default function Onboarding() {
                       return (
                         <motion.button
                           key={r.id}
-                          whileHover={{ y: -2 }}
+                          whileHover={{ y: -1 }}
                           whileTap={{ scale: 0.98 }}
                           onClick={() => handleRoleSelect(r.id)}
-                          className={`group flex flex-col items-start gap-2 rounded-xl border px-4 py-4 text-left transition-all ${
+                          className={`group flex items-center gap-3 rounded-xl border px-4 py-4 text-left transition-all ${
                             isSelected
                               ? "border-primary bg-primary/5 ring-2 ring-primary/20"
-                              : "border-border/60 bg-secondary/40 hover:border-primary/30 hover:bg-secondary/70"
+                              : "border-border/60 bg-background hover:border-primary/30"
                           }`}
                         >
-                          <div className="flex w-full items-center gap-3">
-                            <div
-                              className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg shadow-sm transition-colors ${
-                                isSelected ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground"
-                              }`}
-                            >
-                              {r.icon}
+                          <div
+                            className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition-colors ${
+                              isSelected ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+                            }`}
+                          >
+                            {r.icon}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-semibold text-foreground">{r.name}</span>
+                              {r.badge && (
+                                <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-semibold text-green-700 dark:bg-green-900/40 dark:text-green-400">
+                                  <Zap className="h-2.5 w-2.5" />
+                                  {r.badge}
+                                </span>
+                              )}
                             </div>
-                            <div className="flex-1 min-w-0">
-                              <span className="block text-sm font-semibold text-foreground">{r.name}</span>
-                              <span className="block text-xs text-muted-foreground leading-snug">{r.description}</span>
-                            </div>
+                            <span className="block text-xs text-muted-foreground leading-snug mt-0.5">{r.description}</span>
                           </div>
                         </motion.button>
                       );
                     })}
                   </div>
 
+                  {/* Checkboxes */}
+                  <div className="mt-5 flex flex-col gap-3">
+                    <label className="flex items-start gap-2.5 cursor-pointer">
+                      <Checkbox
+                        checked={acceptTerms}
+                        onCheckedChange={(v) => setAcceptTerms(v === true)}
+                        className="mt-0.5"
+                      />
+                      <span className="text-xs text-muted-foreground leading-snug">
+                        I agree to the quantum-secure identity protocol and accept the network's governance terms.
+                      </span>
+                    </label>
+                    <label className="flex items-start gap-2.5 cursor-pointer">
+                      <Checkbox
+                        checked={acceptRegion}
+                        onCheckedChange={(v) => setAcceptRegion(v === true)}
+                        className="mt-0.5"
+                      />
+                      <span className="text-xs text-muted-foreground leading-snug">
+                        I'm not operating in a <span className="underline text-foreground">restricted country/region</span>.
+                      </span>
+                    </label>
+                  </div>
+
                   <Button
                     onClick={handleContinue}
-                    disabled={!selectedRole}
+                    disabled={!selectedRole || !acceptTerms || !acceptRegion}
                     className="mt-5 w-full"
                     size="lg"
                   >
-                    {selectedRole ? `Continue as ${roles.find((r) => r.id === selectedRole)?.name}` : "Select a role"}
-                    <ChevronRight className="ml-1 h-4 w-4" />
+                    Continue
                   </Button>
+
+                  <p className="mt-3 text-center text-[10px] text-muted-foreground leading-relaxed">
+                    QS·DID uses decentralized identity protocols to securely anchor your credentials. By continuing, you agree to our{" "}
+                    <span className="underline cursor-pointer text-foreground">Terms of Service</span> and{" "}
+                    <span className="underline cursor-pointer text-foreground">Privacy Policy</span>.
+                  </p>
                 </motion.div>
               )}
             </AnimatePresence>
