@@ -287,7 +287,7 @@ export function HeroSection() {
             </p>
 
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-              <Button size="lg" className="gap-2">
+              <Button size="lg" className="gap-2" onClick={() => window.location.href = "/onboarding"}>
                 Connect Wallet <ArrowRight className="h-4 w-4" />
               </Button>
               <Button size="lg" variant="outline" className="gap-2">
