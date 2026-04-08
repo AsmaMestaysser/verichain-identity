@@ -34,7 +34,7 @@ export function Navbar() {
               {l.label}
             </a>
           ))}
-          <Button size="sm">Connect Wallet</Button>
+          <Button size="sm" onClick={() => window.location.href = "/onboarding"}>Connect Wallet</Button>
         </div>
 
         {/* Mobile toggle */}
@@ -55,7 +55,7 @@ export function Navbar() {
               {l.label}
             </a>
           ))}
-          <Button size="sm" className="mt-2 w-full">Connect Wallet</Button>
+          <Button size="sm" className="mt-2 w-full" onClick={() => window.location.href = "/onboarding"}>Connect Wallet</Button>
         </motion.div>
       )}
     </motion.nav>
