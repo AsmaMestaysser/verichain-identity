@@ -362,7 +362,7 @@ export default function Onboarding() {
                       <div className="font-semibold uppercase text-muted-foreground">Signature ID</div>
                       <code className="mt-1 block break-all text-foreground">{signature.signature_id}</code>
                       {verified && (
-                        <div className="mt-2 inline-flex items-center gap-1 text-emerald-500">
+                        <div className="mt-2 inline-flex items-center gap-1 text-accent">
                           <CheckCircle2 className="h-3 w-3" /> verified
                         </div>
                       )}
