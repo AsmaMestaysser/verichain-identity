@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import Index from "./pages/Index.tsx";
 import Onboarding from "./pages/Onboarding.tsx";
+import Login from "./pages/Login.tsx";
 import Registration from "./pages/Registration.tsx";
 import Dashboard from "./pages/Dashboard.tsx";
 import HolderDashboard from "./pages/HolderDashboard.tsx";
@@ -23,6 +24,7 @@ const App = () => (
         <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/onboarding" element={<Onboarding />} />
+          <Route path="/login" element={<Login />} />
           <Route path="/registration" element={<Registration />} />
           <Route path="/dashboard/*" element={<Dashboard />} />
           <Route path="/holder" element={<HolderDashboard />} />

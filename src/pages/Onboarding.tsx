@@ -1,366 +1,437 @@
-import { useState, useCallback } from "react";
+// src/pages/Onboarding.tsx
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
+import QRCode from "qrcode";
 import {
   Shield,
-  ChevronRight,
-  ChevronLeft,
+  ShieldCheck,
+  KeyRound,
+  Wallet,
   Loader2,
   AlertTriangle,
-  Stamp,
-  UserCheck,
-  ScanSearch,
-  Wallet,
-  Link2,
-  Landmark,
-  Zap,
+  CheckCircle2,
+  ChevronRight,
+  Cpu,
+  ScanLine,
+  FileSignature,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
-import { WalletAddress } from "@/components/ui/WalletAddress";
+import { Input } from "@/components/ui/input";
 import { toast } from "@/hooks/use-toast";
-import { useNavigate } from "react-router-dom";
 import logo from "@/assets/logo.png";
 
-type Step = "connect" | "role";
-type WalletId = "metamask" | "walletconnect" | "coinbase";
-type Role = "issuer" | "holder" | "verifier";
+import { useAuthMachine, type AuthState } from "@/lib/qsdid/stateMachine";
+import { audit } from "@/lib/qsdid/audit";
+import {
+  initWasm,
+  healthCheck,
+  generateHybridKeys,
+  signDocument,
+  verifySignature,
+  encodeUtf8ToB64,
+  generateChallengeNonce,
+  type HybridKeyPair,
+  type SignatureResult,
+} from "@/lib/qsdid/wasmClient";
+import { createTotp, persistTotpDev, verifyTotp } from "@/lib/qsdid/totp";
 
-interface WalletOption {
-  id: WalletId;
-  name: string;
-  description: string;
-  icon: React.ReactNode;
-  checkInstalled: () => boolean;
-  installUrl: string;
+const API_BASE = "http://localhost:8081";
+
+type StepKey = "totp" | "backend" | "keys" | "sign" | "wallet" | "done";
+
+const stepOrder: { key: StepKey; label: string; icon: React.ReactNode }[] = [
+  { key: "totp", label: "Authenticator", icon: <ScanLine className="h-4 w-4" /> },
+  { key: "backend", label: "Backend", icon: <Cpu className="h-4 w-4" /> },
+  { key: "keys", label: "PQC Keys", icon: <KeyRound className="h-4 w-4" /> },
+  { key: "sign", label: "Sign & Verify", icon: <FileSignature className="h-4 w-4" /> },
+  { key: "wallet", label: "Wallet", icon: <Wallet className="h-4 w-4" /> },
+  { key: "done", label: "Bind Identity", icon: <ShieldCheck className="h-4 w-4" /> },
+];
+
+function stateToStep(s: AuthState): StepKey {
+  switch (s) {
+    case "INIT":
+    case "TOTP_SETUP":
+      return "totp";
+    case "TOTP_VERIFIED":
+      return "backend";
+    case "BACKEND_READY":
+      return "keys";
+    case "KEYS_GENERATED":
+    case "CHALLENGE_GENERATED":
+    case "SIGNED":
+      return "sign";
+    case "VERIFIED":
+      return "wallet";
+    case "WALLET_CONNECTED":
+    case "AUTHENTICATED":
+      return "done";
+  }
 }
 
-const wallets: WalletOption[] = [
-  {
-    id: "metamask",
-    name: "MetaMask",
-    description: "The most popular browser wallet",
-    icon: <Wallet className="h-6 w-6 text-orange-500" />,
-    checkInstalled: () => typeof window !== "undefined" && !!(window as any).ethereum?.isMetaMask,
-    installUrl: "https://metamask.io/download/",
-  },
-  {
-    id: "walletconnect",
-    name: "WalletConnect",
-    description: "Connect any mobile wallet via QR",
-    icon: <Link2 className="h-6 w-6 text-primary" />,
-    checkInstalled: () => true,
-    installUrl: "",
-  },
-  {
-    id: "coinbase",
-    name: "Coinbase Wallet",
-    description: "Secure wallet by Coinbase",
-    icon: <Landmark className="h-6 w-6 text-blue-600" />,
-    checkInstalled: () => typeof window !== "undefined" && !!(window as any).ethereum?.isCoinbaseWallet,
-    installUrl: "https://www.coinbase.com/wallet/downloads",
-  },
-];
-
-const roles: { id: Role; name: string; description: string; icon: React.ReactNode; badge?: string }[] = [
-  {
-    id: "holder",
-    name: "Individual",
-    description: "For personal identity management and credential storage.",
-    icon: <UserCheck className="h-5 w-5" />,
-    badge: "INSTANT",
-  },
-  {
-    id: "issuer",
-    name: "Issuer",
-    description: "For organizations issuing verifiable credentials on-chain.",
-    icon: <Stamp className="h-5 w-5" />,
-  },
-  {
-    id: "verifier",
-    name: "Verifier",
-    description: "For entities verifying credential authenticity and ZKP proofs.",
-    icon: <ScanSearch className="h-5 w-5" />,
-  },
-];
-
-const cardSpring = { type: "spring" as const, stiffness: 120, damping: 14 };
-
 export default function Onboarding() {
-  const [step, setStep] = useState<Step>("connect");
-  const [connectingWallet, setConnectingWallet] = useState<WalletId | null>(null);
-  const [walletAddress, setWalletAddress] = useState<string | null>(null);
-  const [selectedRole, setSelectedRole] = useState<Role | null>(null);
-  const [acceptTerms, setAcceptTerms] = useState(false);
-  const [acceptRegion, setAcceptRegion] = useState(false);
   const navigate = useNavigate();
+  const { state, send } = useAuthMachine();
+  const step = stateToStep(state);
 
-  const handleConnect = useCallback(async (wallet: WalletOption) => {
-    if (!wallet.checkInstalled() && wallet.installUrl) {
-      toast({
-        title: `${wallet.name} not detected`,
-        description: "Please install the extension and refresh.",
-        variant: "destructive",
-      });
-      window.open(wallet.installUrl, "_blank");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // TOTP
+  const [totpSecret, setTotpSecret] = useState<string | null>(null);
+  const [totpUri, setTotpUri] = useState<string | null>(null);
+  const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
+  const [totpCode, setTotpCode] = useState("");
+
+  // PQC
+  const [keys, setKeys] = useState<HybridKeyPair | null>(null);
+  const [signature, setSignature] = useState<SignatureResult | null>(null);
+  const [verified, setVerified] = useState(false);
+
+  // Wallet
+  const [walletAddr, setWalletAddr] = useState<string | null>(null);
+
+  const did = useMemo(() => (walletAddr ? `did:zk:${walletAddr}` : null), [walletAddr]);
+
+  // Bootstrap WASM + TOTP secret immediately so QR is ready on screen 1
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        await initWasm(API_BASE);
+      } catch (e) {
+        setError(`WASM init failed: ${(e as Error).message}`);
+        return;
+      }
+      if (cancelled) return;
+      const ref = `dev-${Date.now()}`;
+      const { secret, uri } = createTotp(ref);
+      setTotpSecret(secret);
+      setTotpUri(uri);
+      const qr = await QRCode.toDataURL(uri, { margin: 1, width: 220 });
+      if (!cancelled) setQrDataUrl(qr);
+      send("TOTP_SETUP_STARTED");
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [send]);
+
+  const verifyTotpCode = useCallback(() => {
+    if (!totpSecret) return;
+    if (!verifyTotp(totpSecret, totpCode)) {
+      setError("Invalid authenticator code");
+      audit("ERROR", "Invalid TOTP");
       return;
     }
+    setError(null);
+    audit("INFO", "TOTP verified");
+    send("TOTP_VERIFIED");
+  }, [totpSecret, totpCode, send]);
 
-    setConnectingWallet(wallet.id);
-
+  const runBackendCheck = useCallback(async () => {
+    setBusy(true);
+    setError(null);
     try {
-      if (wallet.id === "metamask" || wallet.id === "coinbase") {
-        const ethereum = (window as any).ethereum;
-        const accounts: string[] = await ethereum.request({ method: "eth_requestAccounts" });
-        if (accounts.length > 0) {
-          setWalletAddress(accounts[0]);
-          setTimeout(() => setStep("role"), 600);
-        }
-      } else {
-        // WalletConnect placeholder
-        await new Promise((r) => setTimeout(r, 1500));
-        const mockAddr = "0x" + Array.from({ length: 40 }, () => Math.floor(Math.random() * 16).toString(16)).join("");
-        setWalletAddress(mockAddr);
-        setTimeout(() => setStep("role"), 600);
-      }
-    } catch (err: any) {
-      toast({
-        title: "Connection failed",
-        description: err?.message || "User rejected the request.",
-        variant: "destructive",
-      });
+      await healthCheck();
+      send("BACKEND_OK");
+    } catch (e) {
+      setError(`Backend unavailable at ${API_BASE}. Start the Rust service and retry.`);
     } finally {
-      setConnectingWallet(null);
+      setBusy(false);
     }
-  }, []);
+  }, [send]);
 
-  const handleRoleSelect = useCallback((role: Role) => {
-    setSelectedRole(role);
-  }, []);
-
-  const handleContinue = useCallback(() => {
-    if (!selectedRole || !walletAddress) return;
-    const did = `did:zk:${walletAddress}`;
-    toast({ title: "Identity anchored", description: `DID: ${did.slice(0, 20)}…` });
-    if (selectedRole === "holder") {
-      navigate("/holder");
-    } else {
-      navigate(`/registration?role=${selectedRole}&wallet=${walletAddress}`);
+  const runGenerateKeys = useCallback(async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      const k = await generateHybridKeys();
+      setKeys(k);
+      send("KEYS_GENERATED");
+    } catch (e) {
+      setError(`Key generation failed: ${(e as Error).message}`);
+    } finally {
+      setBusy(false);
     }
-  }, [selectedRole, walletAddress, navigate]);
+  }, [send]);
+
+  const runSignAndVerify = useCallback(async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      const nonce = generateChallengeNonce();
+      const docB64 = encodeUtf8ToB64(JSON.stringify({ ctx: "registration", nonce }));
+      audit("INFO", "Challenge generated", { context: "registration" });
+      send("CHALLENGE_GENERATED");
+
+      const sig = await signDocument(docB64);
+      setSignature(sig);
+      send("SIGNED");
+
+      const v = await verifySignature(sig.signature_id, docB64);
+      if (!v?.valid) throw new Error("Verification rejected");
+      setVerified(true);
+      send("VERIFIED");
+    } catch (e) {
+      setError(`Sign/verify failed: ${(e as Error).message}`);
+    } finally {
+      setBusy(false);
+    }
+  }, [send]);
+
+  const runConnectWallet = useCallback(async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      audit("INFO", "Wallet connection requested");
+      const eth = (window as unknown as { ethereum?: { request: (a: { method: string }) => Promise<string[]> } }).ethereum;
+      if (!eth) throw new Error("MetaMask not detected");
+      const accounts = await eth.request({ method: "eth_requestAccounts" });
+      const addr = accounts?.[0];
+      if (!addr) throw new Error("No account returned");
+      setWalletAddr(addr);
+      audit("SUCCESS", "Wallet connected", { addr });
+      send("WALLET_CONNECTED");
+    } catch (e) {
+      setError(`Wallet connection failed: ${(e as Error).message}`);
+    } finally {
+      setBusy(false);
+    }
+  }, [send]);
+
+  const finalize = useCallback(() => {
+    if (!walletAddr || !keys || !totpSecret || !did) return;
+    const ref = did;
+    persistTotpDev(ref, totpSecret); // dev-only TOTP storage
+    const identity = {
+      did,
+      walletAddress: walletAddr,
+      totpRef: ref,
+      publicKey: keys.public_key,
+      createdAt: Date.now(),
+    };
+    sessionStorage.setItem("qsdid.identity", JSON.stringify(identity));
+    audit("SUCCESS", "Identity bound", { did, walletAddr });
+    send("ACCESS_GRANTED");
+    toast({ title: "Identity anchored", description: did });
+    navigate("/holder");
+  }, [walletAddr, keys, totpSecret, did, send, navigate]);
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-background px-4 sm:px-6">
-      {/* Background grid */}
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-background px-4 py-8 sm:px-6">
       <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(hsl(var(--primary)/0.03)_1px,transparent_1px),linear-gradient(90deg,hsl(var(--primary)/0.03)_1px,transparent_1px)] bg-[size:40px_40px]" />
-      {/* Glow */}
-      <div className="pointer-events-none absolute left-1/2 top-1/4 -translate-x-1/2 h-[420px] w-[420px] rounded-full bg-primary/5 blur-[100px]" />
+      <div className="pointer-events-none absolute left-1/2 top-1/4 h-[420px] w-[420px] -translate-x-1/2 rounded-full bg-primary/5 blur-[100px]" />
 
       <motion.div
-        initial={{ y: 30, opacity: 0 }}
+        initial={{ y: 20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
-        transition={cardSpring}
-        className="relative z-10 w-full max-w-md"
+        className="relative z-10 w-full max-w-lg"
       >
-        {/* Glass card */}
         <div className="rounded-2xl border border-border/60 bg-card/80 shadow-lg backdrop-blur-xl">
           {/* Header */}
-          <div className="flex flex-col items-center gap-2 border-b border-border/40 px-6 pt-8 pb-5">
-            <motion.div initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ delay: 0.1, ...cardSpring }}>
-              <div className="flex items-center gap-2">
-                <img src={logo} alt="QS·DID" className="h-9 w-9" />
-                <span className="text-xl font-bold tracking-tight text-foreground">
-                  QS<span className="text-primary">·</span>DID
-                </span>
-              </div>
-            </motion.div>
-            <p className="text-xs font-medium tracking-widest uppercase text-muted-foreground">
-              Quantum-Secure Identity Layer
+          <div className="flex flex-col items-center gap-2 border-b border-border/40 px-6 pt-7 pb-5">
+            <div className="flex items-center gap-2">
+              <img src={logo} alt="QS·DID" className="h-9 w-9" />
+              <span className="text-xl font-bold tracking-tight text-foreground">
+                QS<span className="text-primary">·</span>DID
+              </span>
+            </div>
+            <p className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground">
+              Post-Quantum Identity · ML-DSA-65
             </p>
           </div>
 
-          {/* Connected address badge */}
-          <AnimatePresence>
-            {walletAddress && (
-              <motion.div
-                initial={{ height: 0, opacity: 0 }}
-                animate={{ height: "auto", opacity: 1 }}
-                exit={{ height: 0, opacity: 0 }}
-                className="flex justify-center overflow-hidden border-b border-border/40 py-3"
-              >
-                <WalletAddress address={walletAddress} />
-              </motion.div>
-            )}
-          </AnimatePresence>
+          {/* Stepper */}
+          <div className="flex items-center justify-between gap-1 border-b border-border/40 px-4 py-3">
+            {stepOrder.map((s, i) => {
+              const idx = stepOrder.findIndex((x) => x.key === step);
+              const reached = i <= idx;
+              const active = i === idx;
+              return (
+                <div key={s.key} className="flex flex-1 items-center gap-1">
+                  <div
+                    className={`flex h-7 w-7 items-center justify-center rounded-full border text-[10px] transition-colors ${
+                      active
+                        ? "border-primary bg-primary text-primary-foreground"
+                        : reached
+                          ? "border-primary/40 bg-primary/10 text-primary"
+                          : "border-border bg-muted text-muted-foreground"
+                    }`}
+                  >
+                    {reached && !active ? <CheckCircle2 className="h-3.5 w-3.5" /> : s.icon}
+                  </div>
+                  {i < stepOrder.length - 1 && (
+                    <div className={`h-px flex-1 ${reached ? "bg-primary/40" : "bg-border"}`} />
+                  )}
+                </div>
+              );
+            })}
+          </div>
 
-          {/* Steps */}
-          <div className="relative overflow-hidden px-6 py-6">
+          {/* Body */}
+          <div className="px-6 py-6">
+            {error && (
+              <div className="mb-4 flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/5 p-3 text-xs text-destructive">
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                <span className="break-words">{error}</span>
+              </div>
+            )}
+
             <AnimatePresence mode="wait">
-              {step === "connect" && (
-                <motion.div
-                  key="connect"
-                  initial={{ x: 0, opacity: 1 }}
-                  exit={{ x: -60, opacity: 0 }}
-                  transition={{ duration: 0.3, ease: "easeInOut" }}
-                >
-                  <h2 className="text-lg font-semibold text-foreground">Connect your wallet to continue</h2>
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    We use your wallet as your decentralized identity anchor.
+              {step === "totp" && (
+                <motion.div key="totp" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
+                  <h2 className="text-base font-semibold text-foreground">Setup authenticator</h2>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Scan this QR with Google Authenticator (or any TOTP app) and enter the 6-digit code.
                   </p>
 
-                  <div className="mt-5 flex flex-col gap-3">
-                    {wallets.map((w) => {
-                      const isConnecting = connectingWallet === w.id;
-                      return (
-                        <motion.button
-                          key={w.id}
-                          whileHover={{ y: -2, boxShadow: "0 8px 30px -8px hsl(var(--primary) / 0.12)" }}
-                          whileTap={{ scale: 0.98 }}
-                          onClick={() => handleConnect(w)}
-                          disabled={!!connectingWallet}
-                          className="group flex items-center gap-4 rounded-xl border border-border/60 bg-secondary/40 px-4 py-3.5 text-left transition-colors hover:border-primary/30 hover:bg-secondary/70 disabled:opacity-60"
-                        >
-                          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-background shadow-sm">
-                            {w.icon}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <span className="block text-sm font-semibold text-foreground">{w.name}</span>
-                            <span className="block text-xs text-muted-foreground">{w.description}</span>
-                          </div>
-                          {isConnecting ? (
-                            <Loader2 className="h-4 w-4 shrink-0 animate-spin text-primary" />
-                          ) : (
-                            <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
-                          )}
-                        </motion.button>
-                      );
-                    })}
+                  <div className="mt-4 flex flex-col items-center gap-3 rounded-xl border border-border/60 bg-secondary/30 p-4">
+                    {qrDataUrl ? (
+                      <img src={qrDataUrl} alt="TOTP QR code" className="h-44 w-44 rounded-md bg-background p-2" />
+                    ) : (
+                      <div className="flex h-44 w-44 items-center justify-center rounded-md bg-background">
+                        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                      </div>
+                    )}
+                    {totpSecret && (
+                      <code className="break-all text-center text-[10px] text-muted-foreground">{totpSecret}</code>
+                    )}
                   </div>
 
-                  {connectingWallet && (
-                    <motion.p
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      className="mt-3 flex items-center gap-2 text-xs text-muted-foreground"
-                    >
-                      <Loader2 className="h-3 w-3 animate-spin" />
-                      Connecting…
-                    </motion.p>
-                  )}
+                  <div className="mt-4">
+                    <label className="text-xs font-medium text-foreground">6-digit code</label>
+                    <Input
+                      value={totpCode}
+                      onChange={(e) => setTotpCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                      inputMode="numeric"
+                      placeholder="123456"
+                      className="mt-1 text-center font-mono tracking-[0.4em]"
+                    />
+                  </div>
+
+                  <Button onClick={verifyTotpCode} disabled={totpCode.length !== 6} className="mt-4 w-full">
+                    Verify code <ChevronRight className="ml-1 h-4 w-4" />
+                  </Button>
                 </motion.div>
               )}
 
-              {step === "role" && (
-                <motion.div
-                  key="role"
-                  initial={{ x: 60, opacity: 0 }}
-                  animate={{ x: 0, opacity: 1 }}
-                  exit={{ x: 60, opacity: 0 }}
-                  transition={{ duration: 0.3, ease: "easeInOut" }}
-                >
-                  <button
-                    onClick={() => setStep("connect")}
-                    className="mb-3 flex items-center gap-1 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
-                  >
-                    <ChevronLeft className="h-3.5 w-3.5" />
-                    Back
-                  </button>
-
-                  <h2 className="text-lg font-semibold text-foreground">Verify your identity</h2>
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    Select your account type
+              {step === "backend" && (
+                <motion.div key="backend" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
+                  <h2 className="text-base font-semibold text-foreground">Verify backend</h2>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Pinging the Rust PQC service at <code className="font-mono">{API_BASE}</code> via WASM.
                   </p>
-
-                  <div className="mt-5 flex flex-col gap-3">
-                    {roles.map((r) => {
-                      const isSelected = selectedRole === r.id;
-                      return (
-                        <motion.button
-                          key={r.id}
-                          whileHover={{ y: -1 }}
-                          whileTap={{ scale: 0.98 }}
-                          onClick={() => handleRoleSelect(r.id)}
-                          className={`group flex items-center gap-3 rounded-xl border px-4 py-4 text-left transition-all ${
-                            isSelected
-                              ? "border-primary bg-primary/5 ring-2 ring-primary/20"
-                              : "border-border/60 bg-background hover:border-primary/30"
-                          }`}
-                        >
-                          <div
-                            className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition-colors ${
-                              isSelected ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
-                            }`}
-                          >
-                            {r.icon}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2">
-                              <span className="text-sm font-semibold text-foreground">{r.name}</span>
-                              {r.badge && (
-                                <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-semibold text-green-700 dark:bg-green-900/40 dark:text-green-400">
-                                  <Zap className="h-2.5 w-2.5" />
-                                  {r.badge}
-                                </span>
-                              )}
-                            </div>
-                            <span className="block text-xs text-muted-foreground leading-snug mt-0.5">{r.description}</span>
-                          </div>
-                        </motion.button>
-                      );
-                    })}
-                  </div>
-
-                  {/* Checkboxes */}
-                  <div className="mt-5 flex flex-col gap-3">
-                    <label className="flex items-start gap-2.5 cursor-pointer">
-                      <Checkbox
-                        checked={acceptTerms}
-                        onCheckedChange={(v) => setAcceptTerms(v === true)}
-                        className="mt-0.5"
-                      />
-                      <span className="text-xs text-muted-foreground leading-snug">
-                        I agree to the quantum-secure identity protocol and accept the network's governance terms.
-                      </span>
-                    </label>
-                    <label className="flex items-start gap-2.5 cursor-pointer">
-                      <Checkbox
-                        checked={acceptRegion}
-                        onCheckedChange={(v) => setAcceptRegion(v === true)}
-                        className="mt-0.5"
-                      />
-                      <span className="text-xs text-muted-foreground leading-snug">
-                        I'm not operating in a <span className="underline text-foreground">restricted country/region</span>.
-                      </span>
-                    </label>
-                  </div>
-
-                  <Button
-                    onClick={handleContinue}
-                    disabled={!selectedRole || !acceptTerms || !acceptRegion}
-                    className="mt-5 w-full"
-                    size="lg"
-                  >
-                    Continue
+                  <Button onClick={runBackendCheck} disabled={busy} className="mt-4 w-full">
+                    {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Cpu className="mr-2 h-4 w-4" />}
+                    Check backend
                   </Button>
+                </motion.div>
+              )}
 
-                  <p className="mt-3 text-center text-[10px] text-muted-foreground leading-relaxed">
-                    QS·DID uses decentralized identity protocols to securely anchor your credentials. By continuing, you agree to our{" "}
-                    <span className="underline cursor-pointer text-foreground">Terms of Service</span> and{" "}
-                    <span className="underline cursor-pointer text-foreground">Privacy Policy</span>.
+              {step === "keys" && (
+                <motion.div key="keys" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
+                  <h2 className="text-base font-semibold text-foreground">Generate hybrid PQC keys</h2>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Classical + ML-DSA-65 keypair. Private key never leaves this device.
                   </p>
+                  {keys?.public_key && (
+                    <div className="mt-3 rounded-md border border-border/60 bg-secondary/30 p-3">
+                      <div className="text-[10px] font-semibold uppercase text-muted-foreground">Public key</div>
+                      <code className="mt-1 block break-all text-[10px] text-foreground">
+                        {String(keys.public_key).slice(0, 96)}…
+                      </code>
+                    </div>
+                  )}
+                  <Button onClick={runGenerateKeys} disabled={busy} className="mt-4 w-full">
+                    {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <KeyRound className="mr-2 h-4 w-4" />}
+                    {keys ? "Regenerate" : "Generate keys"}
+                  </Button>
+                </motion.div>
+              )}
+
+              {step === "sign" && (
+                <motion.div key="sign" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
+                  <h2 className="text-base font-semibold text-foreground">Sign & verify challenge</h2>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    A unique nonce will be signed with ML-DSA-65 and verified against the backend.
+                  </p>
+                  {signature?.signature_id && (
+                    <div className="mt-3 rounded-md border border-border/60 bg-secondary/30 p-3 text-[10px]">
+                      <div className="font-semibold uppercase text-muted-foreground">Signature ID</div>
+                      <code className="mt-1 block break-all text-foreground">{signature.signature_id}</code>
+                      {verified && (
+                        <div className="mt-2 inline-flex items-center gap-1 text-accent">
+                          <CheckCircle2 className="h-3 w-3" /> verified
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  <Button onClick={runSignAndVerify} disabled={busy} className="mt-4 w-full">
+                    {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileSignature className="mr-2 h-4 w-4" />}
+                    Sign & verify
+                  </Button>
+                </motion.div>
+              )}
+
+              {step === "wallet" && (
+                <motion.div key="wallet" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
+                  <h2 className="text-base font-semibold text-foreground">Connect MetaMask</h2>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Your wallet anchors the DID and binds it to your PQC public key.
+                  </p>
+                  <Button onClick={runConnectWallet} disabled={busy} className="mt-4 w-full">
+                    {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wallet className="mr-2 h-4 w-4" />}
+                    Connect MetaMask
+                  </Button>
+                </motion.div>
+              )}
+
+              {step === "done" && (
+                <motion.div key="done" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
+                  <h2 className="text-base font-semibold text-foreground">Bind your identity</h2>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Linking TOTP, hybrid public key, wallet, and DID.
+                  </p>
+                  <div className="mt-3 space-y-2 rounded-md border border-border/60 bg-secondary/30 p-3 text-[11px]">
+                    <Row label="DID" value={did ?? "—"} />
+                    <Row label="Wallet" value={walletAddr ?? "—"} />
+                    <Row label="Signature" value={signature?.signature_id ?? "—"} />
+                  </div>
+                  <Button onClick={finalize} className="mt-4 w-full">
+                    <ShieldCheck className="mr-2 h-4 w-4" /> Finalize & enter app
+                  </Button>
                 </motion.div>
               )}
             </AnimatePresence>
           </div>
 
-          {/* Footer trust signal */}
-          <div className="flex items-center justify-center gap-1.5 border-t border-border/40 py-3">
-            <Shield className="h-3.5 w-3.5 text-accent" />
-            <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-              End-to-end encrypted · Quantum-resistant
-            </span>
+          <div className="flex items-center justify-between border-t border-border/40 px-4 py-2.5">
+            <div className="flex items-center gap-1.5">
+              <Shield className="h-3.5 w-3.5 text-accent" />
+              <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                State: <span className="text-foreground">{state}</span>
+              </span>
+            </div>
+            <button
+              onClick={() => navigate("/login")}
+              className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+            >
+              Already registered? Sign in
+            </button>
           </div>
         </div>
       </motion.div>
+    </div>
+  );
+}
+
+function Row({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-start justify-between gap-3">
+      <span className="font-semibold uppercase tracking-wider text-muted-foreground">{label}</span>
+      <code className="break-all text-right text-foreground">{value}</code>
     </div>
   );
 }
