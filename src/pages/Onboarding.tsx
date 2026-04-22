@@ -214,14 +214,25 @@ export default function Onboarding() {
       walletAddress: walletAddr,
       totpRef: ref,
       publicKey: keys.public_key,
+      role,
+      accountType,
       createdAt: Date.now(),
     };
     sessionStorage.setItem("qsdid.identity", JSON.stringify(identity));
-    audit("SUCCESS", "Identity bound", { did, walletAddr });
+    audit("SUCCESS", "Identity bound", { did, walletAddr, role, accountType });
     send("ACCESS_GRANTED");
     toast({ title: "Identity anchored", description: did });
-    navigate("/holder");
-  }, [walletAddr, keys, totpSecret, did, send, navigate]);
+    if (role === "holder") {
+      navigate("/holder");
+    } else {
+      const params = new URLSearchParams({
+        role,
+        type: accountType,
+        wallet: walletAddr,
+      });
+      navigate(`/registration?${params.toString()}`);
+    }
+  }, [walletAddr, keys, totpSecret, did, role, accountType, send, navigate]);
 
   return (
     <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-background px-4 py-8 sm:px-6">
