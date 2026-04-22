@@ -409,13 +409,63 @@ export default function Onboarding() {
                   <p className="mt-1 text-xs text-muted-foreground">
                     Linking TOTP, hybrid public key, wallet, and DID.
                   </p>
+
+                  {/* Role selection */}
+                  <div className="mt-4">
+                    <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                      Choose your role
+                    </div>
+                    <div className="mt-2 grid grid-cols-3 gap-2">
+                      {(["holder", "issuer", "verifier"] as const).map((r) => (
+                        <button
+                          key={r}
+                          type="button"
+                          onClick={() => setRole(r)}
+                          className={`rounded-md border px-2 py-2 text-[11px] font-medium capitalize transition-colors ${
+                            role === r
+                              ? "border-primary bg-primary/10 text-primary"
+                              : "border-border bg-secondary/30 text-muted-foreground hover:text-foreground"
+                          }`}
+                        >
+                          {r}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Account type (only relevant for issuer/verifier registration) */}
+                  {role !== "holder" && (
+                    <div className="mt-3">
+                      <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                        Account type
+                      </div>
+                      <div className="mt-2 grid grid-cols-2 gap-2">
+                        {(["individual", "organization"] as const).map((t) => (
+                          <button
+                            key={t}
+                            type="button"
+                            onClick={() => setAccountType(t)}
+                            className={`rounded-md border px-2 py-2 text-[11px] font-medium capitalize transition-colors ${
+                              accountType === t
+                                ? "border-primary bg-primary/10 text-primary"
+                                : "border-border bg-secondary/30 text-muted-foreground hover:text-foreground"
+                            }`}
+                          >
+                            {t}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
                   <div className="mt-3 space-y-2 rounded-md border border-border/60 bg-secondary/30 p-3 text-[11px]">
                     <Row label="DID" value={did ?? "—"} />
                     <Row label="Wallet" value={walletAddr ?? "—"} />
                     <Row label="Signature" value={signature?.signature_id ?? "—"} />
                   </div>
                   <Button onClick={finalize} className="mt-4 w-full">
-                    <ShieldCheck className="mr-2 h-4 w-4" /> Finalize & enter app
+                    <ShieldCheck className="mr-2 h-4 w-4" />
+                    {role === "holder" ? "Finalize & enter app" : "Finalize & continue registration"}
                   </Button>
                 </motion.div>
               )}
