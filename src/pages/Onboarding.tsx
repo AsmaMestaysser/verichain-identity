@@ -92,6 +92,10 @@ export default function Onboarding() {
   // Wallet
   const [walletAddr, setWalletAddr] = useState<string | null>(null);
 
+  // Role & type selection (decides post-finalize routing)
+  const [role, setRole] = useState<"holder" | "issuer" | "verifier">("holder");
+  const [accountType, setAccountType] = useState<"individual" | "organization">("individual");
+
   const did = useMemo(() => (walletAddr ? `did:zk:${walletAddr}` : null), [walletAddr]);
 
   // Bootstrap WASM + TOTP secret immediately so QR is ready on screen 1
