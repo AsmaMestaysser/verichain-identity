@@ -7,6 +7,7 @@ import Index from "./pages/Index.tsx";
 import Onboarding from "./pages/Onboarding.tsx";
 import Login from "./pages/Login.tsx";
 import Registration from "./pages/Registration.tsx";
+import RoleSelection from "./pages/RoleSelection.tsx";
 import Dashboard from "./pages/Dashboard.tsx";
 import HolderDashboard from "./pages/HolderDashboard.tsx";
 import IssuerDashboard from "./pages/IssuerDashboard.tsx";
@@ -25,6 +26,7 @@ const App = () => (
           <Route path="/" element={<Index />} />
           <Route path="/onboarding" element={<Onboarding />} />
           <Route path="/login" element={<Login />} />
+          <Route path="/role-selection" element={<RoleSelection />} />
           <Route path="/registration" element={<Registration />} />
           <Route path="/dashboard/*" element={<Dashboard />} />
           <Route path="/holder" element={<HolderDashboard />} />
